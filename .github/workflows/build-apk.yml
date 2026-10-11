@@ -1,0 +1,64 @@
+name: Build Android apps
+
+# Runs when you click "Run workflow" on the Actions tab, or when you push.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  phone:
+    name: Phone app (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Flutter project and apply our sources
+        run: bash setup.sh
+
+      - name: Unit tests (does not block the APK)
+        continue-on-error: true
+        working-directory: build/safetyapp
+        run: flutter test
+
+      - name: Build release APK
+        working-directory: build/safetyapp
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: safety-phone-apk
+          path: build/safetyapp/build/app/outputs/flutter-apk/app-release.apk
+
+  watch:
+    name: Wear OS app (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        run: gradle -p wear_os assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: safety-wear-apk
+          path: wear_os/app/build/outputs/apk/debug/app-debug.apk
