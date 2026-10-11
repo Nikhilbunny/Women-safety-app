@@ -77,8 +77,9 @@ class SosService {
         return Geolocator.getLastKnownPosition();
       }
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      ).timeout(const Duration(seconds: 8));
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
     } catch (_) {
       // GPS can be slow indoors; a recent cached fix is better than nothing.
       try {
