@@ -33,7 +33,16 @@ jobs:
 
       - name: Build release APK
         working-directory: build/safetyapp
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee ../build.log
+
+      - name: Show build errors as an annotation
+        if: failure()
+        run: |
+          { grep -nE "rror|e: |FAILURE|went wrong|Could not|not found|Unresolved|cannot|Exception" build/build.log | head -40; echo "---- last lines ----"; tail -n 40 build/build.log; } > summary.txt || true
+          msg=$(head -c 7000 summary.txt | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+          echo "::error title=Phone build failed::$msg"
 
       - uses: actions/upload-artifact@v4
         with:
