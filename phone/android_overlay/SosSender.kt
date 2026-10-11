@@ -109,6 +109,28 @@ object SosSender {
         return best
     }
 
+    /** Message for live tracking, low battery and shutdown alerts. Plain characters only. */
+    fun buildTrackingMessage(headline: String, name: String, loc: Location?, battery: Int?, via: String): String {
+        val sb = StringBuilder()
+        val who = if (name.isBlank()) "Someone" else name
+        sb.append(headline).append(" - ").append(who).append("\n")
+        val fmt = java.text.SimpleDateFormat("dd MMM yyyy HH:mm", java.util.Locale.ENGLISH)
+        sb.append("Time: ").append(fmt.format(java.util.Date())).append("\n")
+        if (loc != null) {
+            val lat = String.format(java.util.Locale.US, "%.5f", loc.latitude)
+            val lng = String.format(java.util.Locale.US, "%.5f", loc.longitude)
+            val ageMin = (System.currentTimeMillis() - loc.time) / 60000
+            sb.append("Location: ").append(lat).append(", ").append(lng)
+            if (ageMin >= 2) sb.append(" [").append(ageMin).append(" min old]")
+            sb.append("\nMap: https://maps.google.com/?q=").append(lat).append(",").append(lng).append("\n")
+        } else {
+            sb.append("Location: unavailable.\n")
+        }
+        if (battery != null) sb.append("Battery: ").append(battery).append("%\n")
+        sb.append("Sent by Safety App (").append(via).append(").")
+        return sb.toString()
+    }
+
     fun buildMessage(name: String, source: String, loc: Location?): String {
         val sb = StringBuilder()
         val who = if (name.isBlank()) "Someone" else name

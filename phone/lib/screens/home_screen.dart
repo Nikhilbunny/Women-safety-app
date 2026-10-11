@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../db.dart';
@@ -9,7 +10,9 @@ import '../helplines.dart';
 import '../models.dart';
 import '../shake_detector.dart';
 import '../sos_service.dart';
+import '../tracking_service.dart';
 import 'contacts_screen.dart';
+import 'places_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _retryTimer;
 
   bool _shakeOn = false;
+  bool _tracking = false;
+  int _trackMinutes = 10;
   bool _countdownOpen = false;
   List<SosEvent> _events = [];
   int _pending = 0;
@@ -50,10 +55,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final events = await AppDb.instance.events();
     final pending = (await AppDb.instance.outbox()).length;
     final shakeSaved = await AppDb.instance.getSetting('shake_on') == '1';
+    final tracking = await TrackingService.isOn();
+    final minutes = int.tryParse(await AppDb.instance.getSetting('track_minutes') ?? '') ?? 10;
     if (!mounted) return;
     setState(() {
       _events = events;
       _pending = pending;
+      _tracking = tracking;
+      _trackMinutes = minutes;
       if (shakeSaved != _shakeOn) {
         _shakeOn = shakeSaved;
         shakeSaved ? _shake.start() : _shake.stop();
@@ -65,6 +74,43 @@ class _HomeScreenState extends State<HomeScreen> {
     await AppDb.instance.setSetting('shake_on', on ? '1' : '0');
     on ? _shake.start() : _shake.stop();
     setState(() => _shakeOn = on);
+  }
+
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _toggleTracking(bool on) async {
+    if (!on) {
+      await TrackingService.stop();
+      setState(() => _tracking = false);
+      return;
+    }
+    if ((await AppDb.instance.contacts()).isEmpty) {
+      _snack('Add at least one emergency contact first');
+      return;
+    }
+    if (!await Permission.locationWhenInUse.request().isGranted) {
+      _snack('Location permission is needed for tracking');
+      return;
+    }
+    await Permission.notification.request();
+    await SosService.instance.syncNative();
+    try {
+      await TrackingService.start(_trackMinutes);
+      setState(() => _tracking = true);
+      _snack('Tracking on. Your contacts get your location every $_trackMinutes min.');
+    } catch (_) {
+      _snack('Could not start tracking. Check location and SMS permissions.');
+    }
+  }
+
+  Future<void> _setTrackMinutes(int? m) async {
+    if (m == null) return;
+    await AppDb.instance.setSetting('track_minutes', m.toString());
+    setState(() => _trackMinutes = m);
+    if (_tracking) await TrackingService.start(m);
   }
 
   Future<void> _startSos(String source) async {
@@ -94,6 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Safety App'),
         actions: [
+          IconButton(
+            tooltip: 'Nearby hospitals, police, exits',
+            icon: const Icon(Icons.map),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlacesScreen())),
+          ),
           IconButton(
             tooltip: 'Emergency contacts',
             icon: const Icon(Icons.contacts),
@@ -152,6 +203,31 @@ class _HomeScreenState extends State<HomeScreen> {
             value: _shakeOn,
             onChanged: _toggleShake,
           ),
+          if (TrackingService.supported) ...[
+            SwitchListTile(
+              title: const Text('Share my location with contacts'),
+              subtitle: const Text(
+                'Texts your location regularly, and sends a last alert at 5% battery or when the phone shuts down (shutdown alert is not guaranteed).',
+              ),
+              value: _tracking,
+              onChanged: _toggleTracking,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Expanded(child: Text('Send every')),
+                  DropdownButton<int>(
+                    value: _trackMinutes,
+                    items: const [5, 10, 15, 30]
+                        .map((m) => DropdownMenuItem(value: m, child: Text('$m min')))
+                        .toList(),
+                    onChanged: _setTrackMinutes,
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Divider(),
           Text('Helplines (tap to call)', style: Theme.of(context).textTheme.titleMedium),
           for (final h in helplines)

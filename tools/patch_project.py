@@ -15,6 +15,10 @@ ANDROID_PERMISSIONS = [
     "android.permission.ACCESS_FINE_LOCATION",
     "android.permission.ACCESS_COARSE_LOCATION",
     "android.permission.VIBRATE",
+    "android.permission.INTERNET",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_LOCATION",
+    "android.permission.POST_NOTIFICATIONS",
 ]
 
 SERVICE_XML = """
@@ -29,6 +33,13 @@ SERVICE_XML = """
                     android:pathPrefix="/sos" />
             </intent-filter>
         </service>
+"""
+
+TRACKING_XML = """
+        <service
+            android:name=".TrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 """
 
 WEAR_DEP = 'implementation("com.google.android.gms:play-services-wearable:18.2.0")'
@@ -50,6 +61,11 @@ def patch_manifest(path: Path) -> None:
 
     if ".WearSosService" not in text:
         text, n = re.subn(r"</application>", SERVICE_XML + "    </application>", text, count=1)
+        if n != 1:
+            raise SystemExit("Could not find </application> in AndroidManifest.xml")
+
+    if ".TrackingService" not in text:
+        text, n = re.subn(r"</application>", TRACKING_XML + "    </application>", text, count=1)
         if n != 1:
             raise SystemExit("Could not find </application> in AndroidManifest.xml")
 

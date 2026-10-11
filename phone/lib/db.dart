@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import 'models.dart';
+import 'places.dart';
 
 /// Local SQLite store. Everything the app needs lives here, so it keeps
 /// working with no network at all.
@@ -17,8 +18,12 @@ class AppDb {
     final path = p.join(await getDatabasesPath(), 'safety.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (d, oldV, newV) async {
+        if (oldV < 2) await _createPlaces(d);
+      },
       onCreate: (d, v) async {
+        await _createPlaces(d);
         await d.execute(
             'CREATE TABLE contacts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, relation TEXT)');
         await d.execute(
@@ -28,6 +33,30 @@ class AppDb {
         await d.execute('CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT)');
       },
     );
+  }
+
+  static Future<void> _createPlaces(Database d) async {
+    await d.execute(
+        'CREATE TABLE IF NOT EXISTS places(id TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, phone TEXT)');
+  }
+
+  // ---- cached nearby places (hospitals, police, exits) ----
+  Future<void> savePlaces(List<Place> places, double centerLat, double centerLng) async {
+    final d = await _database;
+    final batch = d.batch();
+    batch.delete('places');
+    for (final p in places) {
+      batch.insert('places', p.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    await setSetting('places_lat', centerLat.toString());
+    await setSetting('places_lng', centerLng.toString());
+    await setSetting('places_time', DateTime.now().millisecondsSinceEpoch.toString());
+  }
+
+  Future<List<Place>> places() async {
+    final rows = await (await _database).query('places');
+    return rows.map(Place.fromMap).toList();
   }
 
   // ---- contacts ----

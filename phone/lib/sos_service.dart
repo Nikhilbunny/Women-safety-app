@@ -60,7 +60,7 @@ class SosService {
           time: DateTime.fromMillisecondsSinceEpoch(m['time'] as int),
           lat: (m['lat'] as num?)?.toDouble(),
           lng: (m['lng'] as num?)?.toDouble(),
-          source: 'watch',
+          source: (m['source'] as String?) ?? 'watch',
           delivered: m['delivered'] as bool,
         );
         if (m['delivered'] != true) {

@@ -18,6 +18,10 @@ networks, the watch talks to the phone over Bluetooth, and all data is stored on
 | Emergency contacts + your name (stored locally) | yes | - | - |
 | Shake phone 3 times to send SOS | yes (app open) | - | - |
 | Offline helpline directory with tap-to-call | yes | - | - |
+| Nearby hospitals, police stations and emergency exits (OpenStreetMap), saved for offline use, with distance, direction, call and directions buttons | yes | - | - |
+| Map with markers and your recorded trail (map pictures need internet; list and markers do not) | yes | - | - |
+| Live location sharing: SMS to contacts every 5-30 min from a foreground service | Android | - | - |
+| Last alert at 5% battery, and a best-effort alert at shutdown | Android | - | - |
 | Alert history log | yes | - | - |
 | Watch SOS works while the phone app is closed | Android: yes (native service) | - | iOS: no |
 
@@ -78,6 +82,15 @@ Watch --Bluetooth--> Phone native service --SMS (cellular)--> contacts
 ```
 
 ## Known limits (be honest with your users)
+
+- **A switched-off phone cannot send anything.** The app keeps your contacts updated while the phone is on, sends a
+  final alert at 5% battery, and tries to send one at shutdown. Android does not guarantee the shutdown alert, and a
+  forced power-off or a dead battery gives no warning, so the last periodic or low-battery location is what contacts have.
+- **Nearby places need internet once.** The list is fetched from OpenStreetMap (free, no key) and then saved on the phone.
+  Emergency exits exist only where volunteers have mapped them, so many buildings show none.
+- **Live tracking uses your SMS plan** (one text per interval per contact) and shows a permanent notification while on.
+  Contacts see a map link in each text. A live map page for contacts would need a server.
+- Map pictures come from the public OpenStreetMap tile server, which is fine for testing; a real launch needs a tile provider.
 
 - **Not compiled or run in the environment this was written in** (no Flutter/Android/Xcode
   toolchain there). The Python patch step was tested; the Dart, Kotlin and Swift need a first
