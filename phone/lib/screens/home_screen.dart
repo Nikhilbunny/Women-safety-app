@@ -9,10 +9,12 @@ import '../db.dart';
 import '../helplines.dart';
 import '../models.dart';
 import '../shake_detector.dart';
+import '../sos_extras.dart';
 import '../sos_service.dart';
 import '../tracking_service.dart';
 import 'contacts_screen.dart';
 import 'places_screen.dart';
+import 'tools_panel.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,8 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     _countdownOpen = false;
     if (go == true) {
+      await SosExtras.beforeSend();
       await _svc.trigger(source: source);
       await _load();
+      await SosExtras.afterSend();
     }
   }
 
@@ -138,7 +142,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Safety App'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset('assets/logo.png', width: 30, height: 30),
+            ),
+            const SizedBox(width: 10),
+            const Text('Safety App'),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Nearby hospitals, police, exits',
@@ -197,6 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (_, s, __) => Center(child: Text(s, textAlign: TextAlign.center)),
           ),
           const SizedBox(height: 16),
+          const ToolsPanel(),
+          const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Shake phone 3 times to send SOS'),
             subtitle: const Text('Works while the app is open'),

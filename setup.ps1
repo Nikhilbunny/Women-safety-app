@@ -33,6 +33,13 @@ $KT = Join-Path $App "android\app\src\main\kotlin\com\example\safetyapp"
 New-Item -ItemType Directory -Force $KT | Out-Null
 Copy-Item -Force (Join-Path $Here "phone\android_overlay\*.kt") $KT
 
+# Launcher icons, alarm sounds (res/raw) and in-app logo
+$res = Join-Path $App "android\app\src\main\res"
+Copy-Item -Recurse -Force (Join-Path $Here "phone\android_overlay\res\*") $res
+Get-ChildItem $res -Directory -Filter "mipmap-anydpi*" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+New-Item -ItemType Directory -Force (Join-Path $App "assets") | Out-Null
+Copy-Item -Recurse -Force (Join-Path $Here "phone\assets\*") (Join-Path $App "assets")
+
 # iOS bridge (only matters if you build for iPhone on a Mac)
 $ios = Join-Path $App "ios\Runner"
 if (Test-Path $ios) {

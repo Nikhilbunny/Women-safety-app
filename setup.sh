@@ -24,6 +24,12 @@ KT="$APP/android/app/src/main/kotlin/com/example/safetyapp"
 mkdir -p "$KT"
 cp "$HERE"/phone/android_overlay/*.kt "$KT/"
 
+# Launcher icons, alarm sounds (res/raw) and in-app logo
+cp -r "$HERE/phone/android_overlay/res/." "$APP/android/app/src/main/res/"
+rm -rf "$APP"/android/app/src/main/res/mipmap-anydpi*
+mkdir -p "$APP/assets"
+cp -r "$HERE/phone/assets/." "$APP/assets/"
+
 # iOS bridge (needs one manual line in AppDelegate, see README)
 if [ -d "$APP/ios/Runner" ]; then
   cp "$HERE/phone/ios_overlay/PhoneWatchBridge.swift" "$APP/ios/Runner/"

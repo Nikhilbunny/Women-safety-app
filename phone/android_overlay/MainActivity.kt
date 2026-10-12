@@ -1,7 +1,10 @@
 package com.example.safetyapp
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -46,6 +49,29 @@ class MainActivity : FlutterActivity() {
                     "getTrail" -> {
                         val prefs = getSharedPreferences(WearSosService.PREFS, Context.MODE_PRIVATE)
                         result.success(prefs.getString("trail", "[]") ?: "[]")
+                    }
+                    "alarmStart" -> {
+                        val sound = call.argument<String>("sound") ?: "siren"
+                        result.success(AlarmPlayer.start(this, sound))
+                    }
+                    "alarmStop" -> {
+                        AlarmPlayer.stop(this)
+                        result.success(true)
+                    }
+                    "alarmState" -> result.success(AlarmPlayer.playing)
+                    "callNumber" -> {
+                        val number = call.argument<String>("number") ?: ""
+                        val granted = ContextCompat.checkSelfPermission(
+                            this, Manifest.permission.CALL_PHONE
+                        ) == PackageManager.PERMISSION_GRANTED
+                        // With permission the call starts at once; without it the dialer opens with the number filled in.
+                        val action = if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL
+                        try {
+                            startActivity(Intent(action, Uri.parse("tel:" + Uri.encode(number))))
+                            result.success(granted)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
                     }
                     else -> result.notImplemented()
                 }

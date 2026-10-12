@@ -19,6 +19,9 @@ ANDROID_PERMISSIONS = [
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_LOCATION",
     "android.permission.POST_NOTIFICATIONS",
+    "android.permission.CALL_PHONE",
+    "android.permission.CAMERA",
+    "android.permission.RECORD_AUDIO",
 ]
 
 SERVICE_XML = """
@@ -52,6 +55,8 @@ def patch_manifest(path: Path) -> None:
     for perm in ANDROID_PERMISSIONS:
         if perm not in text:
             additions.append(f'    <uses-permission android:name="{perm}" />')
+    if "android.hardware.camera" not in text:
+        additions.append('    <uses-feature android:name="android.hardware.camera" android:required="false" />')
     if "android.hardware.telephony" not in text:
         additions.append('    <uses-feature android:name="android.hardware.telephony" android:required="false" />')
     if additions:

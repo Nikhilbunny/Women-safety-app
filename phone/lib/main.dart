@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'call_service.dart';
 import 'screens/home_screen.dart';
 import 'sos_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _requestPermissions();
+  CallService.instance.init();
   await SosService.instance.init();
   runApp(const SafetyApp());
 }
@@ -51,6 +53,7 @@ class _SafetyAppState extends State<SafetyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Safety App',
+      navigatorKey: CallService.navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB3261E)),

@@ -22,8 +22,18 @@ networks, the watch talks to the phone over Bluetooth, and all data is stored on
 | Map with markers and your recorded trail (map pictures need internet; list and markers do not) | yes | - | - |
 | Live location sharing: SMS to contacts every 5-30 min from a foreground service | Android | - | - |
 | Last alert at 5% battery, and a best-effort alert at shutdown | Android | - | - |
+| Loud alarm with two sounds (siren, pulse beeps) on the alarm volume, optional on SOS | Android | - | - |
+| Emergency calls: call one contact, call all in order, or start calling after SOS | Android | - | - |
+| Record video with the back or front camera (visible, started by you), save on phone, share | yes | - | - |
 | Alert history log | yes | - | - |
 | Watch SOS works while the phone app is closed | Android: yes (native service) | - | iOS: no |
+
+## Change the logo or sounds
+
+`python3 tools/make_assets.py` redraws the logo and icons and regenerates the two alarm sounds.
+To use your own logo, put a square PNG (512 px or bigger) at `phone/assets/logo.png` and run
+`python3 tools/make_assets.py --icons-from phone/assets/logo.png`. To add a sound, put a `.wav` in
+`phone/android_overlay/res/raw/` and add it to `AlarmService.sounds` and `AlarmPlayer.kt`.
 
 ## Layout
 
@@ -82,6 +92,12 @@ Watch --Bluetooth--> Phone native service --SMS (cellular)--> contacts
 ```
 
 ## Known limits (be honest with your users)
+
+- **Calls go one at a time.** A phone holds one call, so "call all" calls the first contact, then asks if you want the
+  next one when you return to the app. Without the call permission, Android opens the dialer and you press call.
+- **Camera recording is visible and user-started.** There is no hidden recording and no remote camera access, on purpose.
+  Live video to contacts would need a server and is not built. Recording runs while the app is on screen.
+- **Alarm volume:** the alarm raises the alarm volume to maximum while it plays and restores it after. It stops by itself after 5 minutes.
 
 - **A switched-off phone cannot send anything.** The app keeps your contacts updated while the phone is on, sends a
   final alert at 5% battery, and tries to send one at shutdown. Android does not guarantee the shutdown alert, and a
