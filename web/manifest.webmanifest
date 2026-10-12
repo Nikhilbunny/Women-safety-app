@@ -1,0 +1,14 @@
+{
+  "name": "Safety App",
+  "short_name": "Safety App",
+  "description": "Women and child safety: SOS alerts, alarm, nearby help, video recording.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#7a0f3a",
+  "theme_color": "#b3122e",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

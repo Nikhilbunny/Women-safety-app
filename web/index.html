@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safety App</title>
+<meta name="theme-color" content="#b3122e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png">
+<style>
+/* Layout: header + tab bar, then one panel at a time. SOS panel is two columns on a PC, one on a phone. */
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --surface2:#F3F5F8; --ink:#14202B; --muted:#586878; --line:#D3DAE1;
+  --sos:#C4202F; --sos-ink:#FFFFFF; --ok:#0E7C66; --ok-bg:#D9F1EA; --warn:#9A4A06; --warn-bg:#FCEBD3;
+  --brand:#7A0F3A; --focus:#1F5FBF; --shadow:0 8px 22px rgb(0 0 0 / .18);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1319; --surface:#161F29; --surface2:#1E2935; --ink:#E6EDF3; --muted:#9AABBB; --line:#2B3846;
+    --sos:#E5424F; --ok:#3FC7A5; --ok-bg:#12352C; --warn:#F0A45B; --warn-bg:#3A2A14; --brand:#C4204F; --focus:#7FB1FF;
+    --shadow:0 8px 22px rgb(0 0 0 / .5); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+.wrap{max-width:1020px;margin:0 auto;padding-inline:16px}
+header.top{background:var(--brand);color:#fff}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-block:12px;flex-wrap:wrap}
+.top img{width:36px;height:36px;border-radius:8px}
+.top h1{font-size:1.2rem;font-weight:700;flex:1;min-width:140px}
+.pill{font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:99px;background:rgb(255 255 255 / .18)}
+.pill.off{background:#FCEBD3;color:#7a3d00}
+#installBtn{background:#fff;color:var(--brand);border:0;border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer}
+nav.tabs{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+nav.tabs .wrap{display:flex;gap:2px;overflow-x:auto}
+.tab{background:none;border:0;padding:12px 16px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--sos)}
+main{padding-block:20px 48px}
+[hidden]{display:none!important}
+.panel[hidden]{display:none}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.label{font-size:.74rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.sos-wrap{display:flex;justify-content:center;padding-block:8px}
+.sos{width:210px;height:210px;border-radius:50%;border:0;background:var(--sos);color:var(--sos-ink);font-size:3.6rem;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:var(--shadow);transition:transform .08s}
+.sos:active{transform:scale(.97)}
+.status{text-align:center;min-height:1.6em}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.btn{background:var(--ink);color:var(--surface);border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:var(--sos);color:#fff}
+.btn.wa{background:#1B8A4B;color:#fff}
+.btn.sm{padding:5px 10px;font-size:.85rem}
+.btn[disabled]{opacity:.5;cursor:default}
+select,input[type=text],input[type=tel],input[type=email]{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.82rem;color:var(--muted)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px}
+.err{color:var(--sos);min-height:1.2em;font-size:.85rem}
+.check{display:flex;gap:10px;align-items:flex-start}
+.check input{margin-top:4px;width:18px;height:18px}
+.list{display:flex;flex-direction:column}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.item:last-child{border-bottom:0}
+.item small{display:block;color:var(--muted)}
+.num{font-family:ui-monospace,Consolas,Menlo,monospace}
+.alert{border-color:var(--sos);border-width:2px}
+.alert pre,.msgbox{margin:0;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:.85rem;background:var(--surface2);padding:10px;border-radius:8px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.ev{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.ev b{color:var(--ok)}
+.ev small{display:block;color:var(--muted);font-family:ui-monospace,Consolas,Menlo,monospace}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 14px;cursor:pointer;font-weight:600;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+/* map */
+.map{position:relative;height:380px;border-radius:12px;overflow:hidden;background:#cfd8dc;border:1px solid var(--line);touch-action:none;cursor:grab;user-select:none}
+.map.drag{cursor:grabbing}
+.map .tiles{position:absolute;inset:0}
+.map .tiles img{position:absolute;width:256px;height:256px;max-width:none;user-select:none;-webkit-user-drag:none}
+.pin{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:2px solid #fff;color:#fff;font-weight:700;font-size:.78rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgb(0 0 0 / .4);cursor:pointer}
+.pin.me{background:#1F5FBF;width:18px;height:18px;margin:-9px 0 0 -9px}
+.zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:1.2rem;font-weight:700;cursor:pointer}
+.attrib{position:absolute;left:0;bottom:0;background:rgb(255 255 255 / .85);color:#222;font-size:.7rem;padding:2px 6px}
+.mapnote{position:absolute;left:10px;top:10px;right:60px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.8rem;display:none}
+/* camera */
+video.cam{width:100%;max-height:420px;background:#000;border-radius:12px;display:block}
+.rec{display:inline-flex;align-items:center;gap:8px;background:var(--sos);color:#fff;border-radius:99px;padding:4px 14px;font-weight:700}
+.rec i{width:10px;height:10px;border-radius:50%;background:#fff;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+/* overlay */
+.overlay{position:fixed;inset:0;background:rgb(0 0 0 / .6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.overlay[hidden]{display:none}
+.dialog{background:var(--surface);border-radius:16px;padding:24px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center}
+.dialog .big{font-size:4rem;font-weight:800;color:var(--sos);font-family:ui-monospace,Consolas,monospace}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;z-index:60;max-width:90vw}
+.toast[hidden]{display:none}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <img src="icons/icon-192.png" alt="">
+    <h1>Safety App</h1>
+    <span class="pill" id="net">Online</span>
+    <button id="installBtn" type="button" hidden>Install on this PC</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap" role="tablist">
+    <button class="tab" role="tab" data-tab="sos" aria-selected="true">SOS</button>
+    <button class="tab" role="tab" data-tab="nearby" aria-selected="false">Nearby help</button>
+    <button class="tab" role="tab" data-tab="record" aria-selected="false">Record video</button>
+    <button class="tab" role="tab" data-tab="contacts" aria-selected="false">Contacts</button>
+  </div>
+</nav>
+
+<main class="wrap">
+  <!-- SOS -->
+  <section class="panel" id="p-sos">
+    <div class="grid2">
+      <div class="col">
+        <div class="card">
+          <div class="sos-wrap"><button class="sos" id="sosBtn" type="button" aria-label="Send SOS">SOS</button></div>
+          <p class="status" id="status" aria-live="polite">Ready</p>
+          <div class="btns" style="justify-content:center">
+            <button class="btn ghost" id="shareLoc" type="button">Send my location (no alarm)</button>
+          </div>
+          <p class="muted small" style="text-align:center">A computer cannot send SMS. SOS prepares your message with your location, and you send it with one click through WhatsApp or email.</p>
+        </div>
+
+        <div class="card alert" id="alertCard" hidden>
+          <h2 style="font-size:1.1rem">Alert ready: send it now</h2>
+          <pre id="alertMsg"></pre>
+          <div class="list" id="alertContacts"></div>
+          <div class="btns">
+            <button class="btn ghost" id="copyMsg" type="button">Copy message</button>
+            <button class="btn ghost" id="nativeShare" type="button" hidden>Share...</button>
+            <button class="btn ghost" id="closeAlert" type="button">Close</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">Loud alarm</div>
+          <div class="row">
+            <select id="alarmSound" style="flex:1;min-width:180px" aria-label="Alarm sound">
+              <option value="siren">Siren (rising wail)</option>
+              <option value="pulse">Pulse alarm (sharp beeps)</option>
+            </select>
+            <button class="btn" id="alarmBtn" type="button">Sound alarm</button>
+          </div>
+          <label class="check"><input type="checkbox" id="alarmOnSos"><span>Sound the alarm when SOS is sent</span></label>
+          <p class="muted small">Plays through this computer's speakers at your current volume. Turn the volume up. It stops by itself after 5 minutes.</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="label">Helplines (India)</div>
+          <div class="list" id="helplines"></div>
+          <p class="muted small">Tap to call if your PC has a calling app such as Phone Link. Otherwise dial from your phone.</p>
+        </div>
+        <div class="card">
+          <div class="label">Recent alerts</div>
+          <div id="events"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEARBY -->
+  <section class="panel" id="p-nearby" hidden>
+    <div class="col">
+      <div class="card">
+        <div class="row">
+          <div class="chips" id="filters" role="group" aria-label="Filter">
+            <button class="chip" data-f="all" aria-pressed="true">All</button>
+            <button class="chip" data-f="hospital" aria-pressed="false">Hospitals</button>
+            <button class="chip" data-f="police" aria-pressed="false">Police</button>
+            <button class="chip" data-f="exit" aria-pressed="false">Exits</button>
+          </div>
+          <button class="btn" id="refreshPlaces" type="button">Refresh (needs internet)</button>
+        </div>
+        <p class="small" id="placesNote"></p>
+        <div class="map" id="map" aria-label="Map of nearby places">
+          <div class="tiles" id="tiles"></div>
+          <div class="mapnote" id="mapnote"></div>
+          <div class="zoom"><button id="zin" type="button" aria-label="Zoom in">+</button><button id="zout" type="button" aria-label="Zoom out">-</button></div>
+          <div class="attrib">&copy; OpenStreetMap contributors</div>
+        </div>
+        <p class="muted small">Map pictures need internet. The list below is saved on this computer and works offline. Emergency exits appear only where volunteers have mapped them, so many buildings show none.</p>
+      </div>
+      <div class="card"><div class="list" id="placeList"></div></div>
+    </div>
+  </section>
+
+  <!-- RECORD -->
+  <section class="panel" id="p-record" hidden>
+    <div class="grid2">
+      <div class="card">
+        <video class="cam" id="cam" playsinline muted></video>
+        <div class="row">
+          <div class="btns">
+            <button class="btn ghost" id="camFront" type="button">Front camera</button>
+            <button class="btn ghost" id="camBack" type="button">Back camera</button>
+          </div>
+          <select id="camSelect" style="max-width:260px" aria-label="Choose camera"></select>
+        </div>
+        <div class="row">
+          <button class="btn danger" id="recBtn" type="button" disabled>Start recording</button>
+          <span class="rec" id="recInd" hidden><i></i><span id="recTime">00:00</span></span>
+        </div>
+        <p class="err" id="camErr" aria-live="polite"></p>
+        <p class="muted small">Recording is always visible on screen and only starts when you press the button. A laptop usually has one front camera; a phone or tablet shows both.</p>
+      </div>
+      <div class="card">
+        <div class="label">Recordings from this session</div>
+        <div class="list" id="recList"></div>
+        <p class="muted small">Each video downloads automatically when you stop. Videos are not uploaded anywhere.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACTS -->
+  <section class="panel" id="p-contacts" hidden>
+    <div class="grid2">
+      <div class="col">
+        <div class="card">
+          <div class="label">About you</div>
+          <div class="fields">
+            <div class="field"><label for="nameIn">Your name (shown in the alert)</label><input type="text" id="nameIn" autocomplete="off"></div>
+            <div class="field"><label for="ccIn">Country code for numbers without +</label><input type="text" id="ccIn" inputmode="numeric" placeholder="91"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label">Emergency contacts</div>
+          <div class="list" id="clist"></div>
+        </div>
+      </div>
+      <form class="card" id="addForm" novalidate>
+        <div class="label">Add contact</div>
+        <div class="field"><label for="cName">Name</label><input type="text" id="cName" autocomplete="off"></div>
+        <div class="field"><label for="cRel">Relation (optional)</label><input type="text" id="cRel" autocomplete="off" placeholder="Mother, friend..."></div>
+        <div class="field"><label for="cPhone">Phone (used for WhatsApp and calls)</label><input type="tel" id="cPhone" autocomplete="off" placeholder="+91 98765 43210"></div>
+        <div class="field"><label for="cEmail">Email (optional)</label><input type="email" id="cEmail" autocomplete="off"></div>
+        <p class="err" id="cErr" aria-live="polite"></p>
+        <div><button class="btn" type="submit">Save contact</button></div>
+        <p class="muted small">Contacts are stored only in this browser on this computer.</p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="cd" hidden>
+  <div class="dialog" role="alertdialog" aria-labelledby="cdTitle">
+    <h2 id="cdTitle" style="font-size:1.2rem">Sending SOS</h2>
+    <div class="big" id="cdNum">5</div>
+    <p class="muted">Preparing your alert. Cancel if this was a mistake.</p>
+    <div class="btns" style="justify-content:center">
+      <button class="btn ghost" id="cdCancel" type="button">Cancel</button>
+      <button class="btn danger" id="cdNow" type="button">Send now</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function two(n) { return String(n).padStart(2, "0"); }
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function fmt(t) { t = new Date(t); return two(t.getDate()) + " " + MONTHS[t.getMonth()] + " " + t.getFullYear() + " " + two(t.getHours()) + ":" + two(t.getMinutes()); }
+
+  /* ---------- storage (works even if the browser blocks it) ---------- */
+  var mem = {};
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem("sa_" + k); return v === null ? (k in mem ? mem[k] : d) : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
+    set: function (k, v) { mem[k] = v; try { localStorage.setItem("sa_" + k, JSON.stringify(v)); } catch (e) { /* ignore */ } }
+  };
+
+  var HELP = [["Emergency (police / fire / ambulance)", "112"], ["Women helpline", "1091"], ["Women helpline (domestic abuse)", "181"], ["Child helpline (CHILDLINE)", "1098"]];
+  var S = {
+    name: store.get("name", ""),
+    cc: store.get("cc", "91"),
+    contacts: store.get("contacts", []),
+    events: store.get("events", []),
+    sound: store.get("sound", "siren"),
+    alarmOnSos: store.get("alarmOnSos", false),
+    places: store.get("places", { items: [], time: 0, lat: null, lng: null }),
+    lastMsg: null,
+    pos: null
+  };
+
+  var toastT;
+  function toast(t) { var el = $("#toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 2800); }
+
+  /* ---------- geometry (same maths as the phone app) ---------- */
+  function rad(d) { return d * Math.PI / 180; }
+  function distanceMeters(a1, o1, a2, o2) {
+    var r = 6371000, dA = rad(a2 - a1), dO = rad(o2 - o1);
+    var a = Math.sin(dA / 2) * Math.sin(dA / 2) + Math.cos(rad(a1)) * Math.cos(rad(a2)) * Math.sin(dO / 2) * Math.sin(dO / 2);
+    return 2 * r * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+  function bearing(a1, o1, a2, o2) {
+    var dO = rad(o2 - o1), y = Math.sin(dO) * Math.cos(rad(a2));
+    var x = Math.cos(rad(a1)) * Math.sin(rad(a2)) - Math.sin(rad(a1)) * Math.cos(rad(a2)) * Math.cos(dO);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function compass(d) { return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.floor((((d + 22.5) % 360) / 45)) % 8]; }
+  function fmtDist(m) { return m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(1) + " km"; }
+
+  /* ---------- tabs ---------- */
+  function showTab(name) {
+    $$(".tab").forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false"); });
+    $$(".panel").forEach(function (p) { p.hidden = p.id !== "p-" + name; });
+    if (name === "nearby") { Nearby.onShow(); }
+    if (name !== "record") { Cam.leave(); }
+    if (name === "record") { Cam.onShow(); }
+  }
+  $$(".tab").forEach(function (b) { b.addEventListener("click", function () { showTab(b.getAttribute("data-tab")); }); });
+
+  function renderNet() { var on = navigator.onLine !== false; var p = $("#net"); p.textContent = on ? "Online" : "Offline"; p.className = "pill" + (on ? "" : " off"); }
+  window.addEventListener("online", renderNet); window.addEventListener("offline", renderNet); renderNet();
+
+  /* ---------- contacts ---------- */
+  function normalizePhone(raw) {
+    var c = String(raw).replace(/[\s\-().]/g, "");
+    return /^\+?[0-9]{7,15}$/.test(c) ? c : null;
+  }
+  function waDigits(phone) {
+    var p = String(phone);
+    if (p.charAt(0) === "+") return p.slice(1);
+    return String(S.cc || "").replace(/\D/g, "") + p.replace(/^0+/, "");
+  }
+  function renderContacts() {
+    var el = $("#clist");
+    if (!S.contacts.length) { el.innerHTML = '<p class="muted">No contacts yet. Add the people who should receive your SOS.</p>'; return; }
+    el.innerHTML = S.contacts.map(function (c, i) {
+      return '<div class="item"><div>' + esc(c.name) + (c.relation ? ' <span class="muted">(' + esc(c.relation) + ")</span>" : "") +
+        "<small class='num'>" + esc(c.phone) + (c.email ? " &middot; " + esc(c.email) : "") + '</small></div>' +
+        '<button class="btn ghost sm" data-del="' + i + '" type="button" aria-label="Delete ' + esc(c.name) + '">Delete</button></div>';
+    }).join("");
+  }
+  $("#clist").addEventListener("click", function (e) {
+    var i = e.target.getAttribute && e.target.getAttribute("data-del");
+    if (i !== null && i !== undefined) { S.contacts.splice(Number(i), 1); store.set("contacts", S.contacts); renderContacts(); }
+  });
+  $("#addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = $("#cName").value.trim(), p = normalizePhone($("#cPhone").value), em = $("#cEmail").value.trim();
+    var err = $("#cErr");
+    if (!n) { err.textContent = "Enter a name."; return; }
+    if (!p) { err.textContent = "Enter a valid phone number, for example +91 98765 43210."; return; }
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { err.textContent = "That email address does not look right."; return; }
+    err.textContent = "";
+    S.contacts.push({ name: n, relation: $("#cRel").value.trim(), phone: p, email: em });
+    store.set("contacts", S.contacts);
+    ["#cName", "#cRel", "#cPhone", "#cEmail"].forEach(function (s) { $(s).value = ""; });
+    renderContacts();
+    toast("Contact saved");
+  });
+  $("#nameIn").value = S.name; $("#ccIn").value = S.cc;
+  $("#nameIn").addEventListener("input", function (e) { S.name = e.target.value; store.set("name", S.name); });
+  $("#ccIn").addEventListener("input", function (e) { S.cc = e.target.value.replace(/\D/g, ""); store.set("cc", S.cc); });
+
+  /* ---------- message ---------- */
+  function buildMessage(o) {
+    var s = "EMERGENCY - " + o.name + " needs help.\n";
+    s += "Time: " + fmt(o.time) + "\n";
+    if (o.lat != null) {
+      var la = o.lat.toFixed(5), ln = o.lng.toFixed(5);
+      s += "Location: " + la + ", " + ln + " (approx " + Math.round(o.acc || 0) + " m)" + (o.stale ? " [last known]" : "") + "\n";
+      s += "Map: https://maps.google.com/?q=" + la + "," + ln + "\n";
+    } else {
+      s += "Location: unavailable. Please call now.\n";
+    }
+    s += "Sent by Safety App via " + o.source + ".";
+    return s;
+  }
+
+  function getPosition() {
+    return new Promise(function (resolve) {
+      function cached() { var c = store.get("lastPos", null); return c ? Object.assign({}, c, { stale: true }) : null; }
+      if (!navigator.geolocation) { resolve(cached()); return; }
+      navigator.geolocation.getCurrentPosition(function (p) {
+        var o = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, time: Date.now(), stale: false };
+        store.set("lastPos", o); S.pos = o; resolve(o);
+      }, function () { resolve(cached()); }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+    });
+  }
+
+  /* ---------- alarm (Web Audio, no files needed) ---------- */
+  var Alarm = {
+    ctx: null, osc: null, playing: false,
+    ensure: function () {
+      if (!this.ctx) { var C = window.AudioContext || window.webkitAudioContext; if (!C) return false; this.ctx = new C(); }
+      if (this.ctx.state === "suspended") { this.ctx.resume(); }
+      return true;
+    },
+    start: function (kind) {
+      if (!this.ensure()) { toast("This browser cannot play the alarm."); return false; }
+      this.stop();
+      var c = this.ctx, t0 = c.currentTime + 0.05, total = 300, i, t;
+      var osc = c.createOscillator(), g = c.createGain();
+      osc.connect(g); g.connect(c.destination);
+      if (kind === "pulse") {
+        osc.type = "square"; osc.frequency.value = 2900; g.gain.setValueAtTime(0, t0);
+        t = t0;
+        while (t < t0 + total) {
+          for (i = 0; i < 3; i++) { g.gain.setValueAtTime(0.5, t); g.gain.setValueAtTime(0, t + 0.16); t += 0.26; }
+          t += 0.5;
+        }
+      } else {
+        osc.type = "sawtooth"; g.gain.value = 0.45; osc.frequency.setValueAtTime(700, t0);
+        for (i = 0; i * 1.6 < total; i++) {
+          osc.frequency.linearRampToValueAtTime(1500, t0 + i * 1.6 + 0.8);
+          osc.frequency.linearRampToValueAtTime(700, t0 + i * 1.6 + 1.6);
+        }
+      }
+      var self = this;
+      osc.onended = function () { if (self.osc === osc) { self.osc = null; self.playing = false; renderAlarm(); } };
+      osc.start(t0); osc.stop(t0 + total);
+      this.osc = osc; this.playing = true; renderAlarm();
+      return true;
+    },
+    stop: function () {
+      var o = this.osc; this.osc = null; this.playing = false;
+      if (o) { try { o.stop(); } catch (e) { /* already stopped */ } }
+      renderAlarm();
+    }
+  };
+  function renderAlarm() {
+    var b = $("#alarmBtn");
+    b.textContent = Alarm.playing ? "Stop alarm" : "Sound alarm";
+    b.className = "btn" + (Alarm.playing ? " danger" : "");
+  }
+  $("#alarmSound").value = S.sound;
+  $("#alarmSound").addEventListener("change", function (e) { S.sound = e.target.value; store.set("sound", S.sound); if (Alarm.playing) Alarm.start(S.sound); });
+  $("#alarmOnSos").checked = !!S.alarmOnSos;
+  $("#alarmOnSos").addEventListener("change", function (e) { S.alarmOnSos = e.target.checked; store.set("alarmOnSos", S.alarmOnSos); });
+  $("#alarmBtn").addEventListener("click", function () { if (Alarm.playing) Alarm.stop(); else Alarm.start(S.sound); });
+
+  /* ---------- SOS ---------- */
+  var cdTimer = null, cdOpen = false;
+  function setStatus(t) { $("#status").textContent = t; }
+  function startSos(withAlarm) {
+    if (cdOpen) return;
+    if (!S.contacts.length) { setStatus("Add at least one emergency contact first."); showTab("contacts"); return; }
+    Alarm.ensure(); // a click is needed to allow sound later
+    cdOpen = true; var left = 5;
+    $("#cdNum").textContent = left; $("#cd").hidden = false; $("#cdCancel").focus();
+    function done(go) { clearInterval(cdTimer); $("#cd").hidden = true; cdOpen = false; if (go) runSos(withAlarm); else setStatus("Cancelled."); }
+    $("#cdCancel").onclick = function () { done(false); };
+    $("#cdNow").onclick = function () { done(true); };
+    cdTimer = setInterval(function () { left--; if (left <= 0) done(true); else $("#cdNum").textContent = left; }, 1000);
+  }
+  async function runSos(withAlarm) {
+    if (withAlarm && S.alarmOnSos) Alarm.start(S.sound);
+    setStatus("Getting location...");
+    var pos = await getPosition();
+    var now = Date.now();
+    var msg = buildMessage({ name: (S.name || "").trim() || "Someone", time: now, source: "PC", lat: pos && pos.lat, lng: pos && pos.lng, acc: pos && pos.acc, stale: pos && pos.stale });
+    S.lastMsg = msg;
+    S.events.unshift({ time: now, lat: pos ? pos.lat : null, lng: pos ? pos.lng : null, source: withAlarm ? "SOS" : "Location", contacts: S.contacts.length });
+    S.events = S.events.slice(0, 20); store.set("events", S.events);
+    renderEvents(); renderAlert(msg);
+    setStatus(pos ? "Alert ready. Send it to your contacts below." : "No location. Alert ready; consider calling too.");
+    try { if (navigator.vibrate) navigator.vibrate(300); } catch (e) { /* ignore */ }
+  }
+  function renderAlert(msg) {
+    $("#alertMsg").textContent = msg;
+    var subject = encodeURIComponent("EMERGENCY - " + ((S.name || "").trim() || "Someone") + " needs help");
+    $("#alertContacts").innerHTML = S.contacts.map(function (c) {
+      var wa = "https://wa.me/" + waDigits(c.phone) + "?text=" + encodeURIComponent(msg);
+      var mail = c.email ? "mailto:" + encodeURIComponent(c.email).replace(/%40/g, "@") + "?subject=" + subject + "&body=" + encodeURIComponent(msg) : "";
+      return '<div class="item"><div>' + esc(c.name) + (c.relation ? ' <span class="muted">(' + esc(c.relation) + ")</span>" : "") + "<small class='num'>" + esc(c.phone) + "</small></div>" +
+        '<div class="btns"><a class="btn wa sm" target="_blank" rel="noopener" href="' + wa + '">WhatsApp</a>' +
+        (mail ? '<a class="btn sm" href="' + mail + '">Email</a>' : "") +
+        '<a class="btn ghost sm" href="tel:' + esc(c.phone) + '">Call</a></div></div>';
+    }).join("");
+    $("#nativeShare").hidden = !navigator.share;
+    $("#alertCard").hidden = false;
+    $("#alertCard").scrollIntoView({ block: "nearest" });
+  }
+  $("#copyMsg").addEventListener("click", function () {
+    var t = S.lastMsg || "";
+    function fallback() { var r = document.createRange(); r.selectNodeContents($("#alertMsg")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Message selected. Press Ctrl+C to copy."); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { toast("Message copied"); }, fallback); else fallback();
+  });
+  $("#nativeShare").addEventListener("click", function () { if (navigator.share) navigator.share({ text: S.lastMsg || "" }).catch(function () {}); });
+  $("#closeAlert").addEventListener("click", function () { $("#alertCard").hidden = true; });
+  $("#sosBtn").addEventListener("click", function () { startSos(true); });
+  $("#shareLoc").addEventListener("click", function () { startSos(false); });
+
+  function renderEvents() {
+    var el = $("#events");
+    if (!S.events.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
+    el.innerHTML = S.events.slice(0, 8).map(function (e) {
+      return '<div class="ev"><b aria-hidden="true">&#10003;</b><div>' + esc(e.source) + " &middot; " + fmt(e.time) + "<small>" +
+        (e.lat == null ? "No location" : e.lat.toFixed(5) + ", " + e.lng.toFixed(5)) + "</small></div></div>";
+    }).join("");
+  }
+  $("#helplines").innerHTML = HELP.map(function (h) {
+    return '<a class="item" style="text-decoration:none;color:inherit" href="tel:' + h[1] + '"><span>' + esc(h[0]) + '</span><b class="num">' + h[1] + "</b></a>";
+  }).join("");
+
+  /* ---------- tiny slippy map (no library needed) ---------- */
+  var MapView = {
+    z: 14, c: { lat: 20.5937, lng: 78.9629 }, markers: [], raf: 0, drag: null, el: null, tiles: null,
+    init: function () {
+      var self = this; this.el = $("#map"); this.tiles = $("#tiles");
+      this.el.addEventListener("pointerdown", function (e) {
+        if (e.target.closest(".zoom") || e.target.closest(".pin")) return;
+        self.drag = { x: e.clientX, y: e.clientY, cx: self.px(self.c.lng, self.z, true), cy: self.px(self.c.lat, self.z, false) };
+        self.el.classList.add("drag"); try { self.el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      });
+      this.el.addEventListener("pointermove", function (e) {
+        if (!self.drag) return;
+        var cx = self.drag.cx - (e.clientX - self.drag.x), cy = self.drag.cy - (e.clientY - self.drag.y);
+        self.c = { lng: self.unx(cx, self.z), lat: self.uny(cy, self.z) }; self.schedule();
+      });
+      function end() { self.drag = null; self.el.classList.remove("drag"); }
+      this.el.addEventListener("pointerup", end); this.el.addEventListener("pointercancel", end);
+      this.el.addEventListener("wheel", function (e) { e.preventDefault(); self.zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+      $("#zin").addEventListener("click", function () { self.zoom(1); });
+      $("#zout").addEventListener("click", function () { self.zoom(-1); });
+      window.addEventListener("resize", function () { self.schedule(); });
+    },
+    // Web Mercator maths
+    px: function (v, z, isLng) {
+      var n = Math.pow(2, z) * 256;
+      if (isLng) return (v + 180) / 360 * n;
+      var s = Math.sin(rad(v)); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n;
+    },
+    unx: function (x, z) { return x / (Math.pow(2, z) * 256) * 360 - 180; },
+    uny: function (y, z) { var n = Math.PI - 2 * Math.PI * y / (Math.pow(2, z) * 256); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); },
+    zoom: function (d) { this.z = Math.max(3, Math.min(18, this.z + d)); this.schedule(); },
+    set: function (lat, lng, z) { this.c = { lat: lat, lng: lng }; if (z) this.z = z; this.schedule(); },
+    schedule: function () { var self = this; if (this.raf) return; this.raf = requestAnimationFrame(function () { self.raf = 0; self.render(); }); },
+    render: function () {
+      var w = this.el.clientWidth, h = this.el.clientHeight, z = this.z, n = Math.pow(2, z);
+      var cx = this.px(this.c.lng, z, true), cy = this.px(this.c.lat, z, false);
+      var tlx = cx - w / 2, tly = cy - h / 2, html = "", x, y;
+      for (x = Math.floor(tlx / 256); x <= Math.floor((tlx + w) / 256); x++) {
+        for (y = Math.floor(tly / 256); y <= Math.floor((tly + h) / 256); y++) {
+          if (y < 0 || y >= n) continue;
+          var wx = ((x % n) + n) % n;
+          html += '<img alt="" draggable="false" referrerpolicy="origin" style="left:' + Math.round(x * 256 - tlx) + "px;top:" + Math.round(y * 256 - tly) + 'px" src="https://tile.openstreetmap.org/' + z + "/" + wx + "/" + y + '.png">';
+        }
+      }
+      this.tiles.innerHTML = html;
+      var self = this;
+      $$("#map .pin").forEach(function (p) { p.remove(); });
+      this.markers.forEach(function (m) {
+        var d = document.createElement("div");
+        d.className = "pin" + (m.me ? " me" : ""); d.style.background = m.color; d.textContent = m.label || "";
+        d.style.left = Math.round(self.px(m.lng, z, true) - tlx) + "px"; d.style.top = Math.round(self.px(m.lat, z, false) - tly) + "px";
+        d.title = m.title || ""; d.setAttribute("role", "img"); d.setAttribute("aria-label", m.title || "marker");
+        if (m.onClick) d.addEventListener("click", m.onClick);
+        self.el.appendChild(d);
+      });
+    }
+  };
+  MapView.init();
+
+  /* ---------- nearby places ---------- */
+  var KIND = {
+    hospital: { label: "Hospital", color: "#C4202F", letter: "H", plural: "Hospitals" },
+    police: { label: "Police station", color: "#2F3FA8", letter: "P", plural: "Police" },
+    exit: { label: "Emergency exit / assembly point", color: "#1B8A4B", letter: "E", plural: "Exits" }
+  };
+  function classify(t) {
+    if (t.amenity === "hospital") return "hospital";
+    if (t.amenity === "police") return "police";
+    if (t.entrance === "emergency" || t.door === "emergency" || t.emergency === "assembly_point" || t.highway === "emergency_access_point") return "exit";
+    return null;
+  }
+  function parseOverpass(data) {
+    var out = {};
+    ((data && data.elements) || []).forEach(function (e) {
+      var t = e && e.tags; if (!t) return;
+      var kind = classify(t); if (!kind) return;
+      var lat = e.lat, lng = e.lon;
+      if ((lat == null || lng == null) && e.center) { lat = e.center.lat; lng = e.center.lon; }
+      if (lat == null || lng == null) return;
+      out[e.type + e.id] = { id: e.type + e.id, kind: kind, name: t.name || t["name:en"] || t.operator || KIND[kind].label, lat: lat, lng: lng, phone: t.phone || t["contact:phone"] || null };
+    });
+    return Object.keys(out).map(function (k) { return out[k]; });
+  }
+  function overpassQuery(lat, lng) {
+    var c = lat + "," + lng, r = 5000, x = 1500;
+    return "[out:json][timeout:25];" +
+      '(nwr["amenity"="hospital"](around:' + r + "," + c + "););out center tags 40;" +
+      '(nwr["amenity"="police"](around:' + r + "," + c + "););out center tags 40;" +
+      '(nwr["entrance"="emergency"](around:' + x + "," + c + ");" + 'nwr["door"="emergency"](around:' + x + "," + c + ");" +
+      'nwr["emergency"="assembly_point"](around:' + x + "," + c + ");" + 'nwr["highway"="emergency_access_point"](around:' + x + "," + c + "););out center tags 40;";
+  }
+  var Nearby = {
+    filter: "all", loading: false, shown: false,
+    onShow: function () {
+      var self = this;
+      if (!this.shown) {
+        this.shown = true;
+        MapView.schedule();
+        var stale = !S.places.time || Date.now() - S.places.time > 24 * 3600 * 1000;
+        getPosition().then(function (p) {
+          self.render();
+          var moved = p && S.places.lat != null && distanceMeters(p.lat, p.lng, S.places.lat, S.places.lng) > 3000;
+          if (p && !p.stale && (!S.places.items.length || stale || moved) && navigator.onLine !== false) self.refresh();
+          else if (!p) self.note("Your location is not available. Allow location in the browser and press Refresh.");
+        });
+      }
+      this.render();
+    },
+    note: function (t) { $("#placesNote").textContent = t; },
+    refresh: async function () {
+      if (this.loading) return;
+      var p = S.pos || await getPosition();
+      if (!p) { this.note("Your location is not available. Allow location access and try again."); return; }
+      this.loading = true; $("#refreshPlaces").disabled = true; this.note("Looking up nearby places...");
+      var endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"], ok = false, i;
+      for (i = 0; i < endpoints.length && !ok; i++) {
+        try {
+          var res = await fetch(endpoints[i], { method: "POST", body: new URLSearchParams({ data: overpassQuery(p.lat, p.lng) }) });
+          if (res.ok) {
+            var items = parseOverpass(await res.json());
+            S.places = { items: items, time: Date.now(), lat: p.lat, lng: p.lng }; store.set("places", S.places);
+            ok = true;
+            this.note(items.length ? "" : "Nothing found within 5 km in the map data.");
+          }
+        } catch (e) { /* try the next server */ }
+      }
+      if (!ok) this.note(S.places.items.length ? "No internet. Showing the places saved earlier." : "No internet and nothing saved yet. Connect once to save places for offline use.");
+      this.loading = false; $("#refreshPlaces").disabled = false; this.render();
+    },
+    rows: function () {
+      var p = S.pos || store.get("lastPos", null), f = this.filter;
+      return S.places.items.filter(function (x) { return f === "all" || x.kind === f; }).map(function (x) {
+        return { p: x, m: p ? distanceMeters(p.lat, p.lng, x.lat, x.lng) : Infinity, b: p ? bearing(p.lat, p.lng, x.lat, x.lng) : 0 };
+      }).sort(function (a, b) { return a.m - b.m; });
+    },
+    render: function () {
+      var rows = this.rows(), me = S.pos || store.get("lastPos", null);
+      var markers = rows.map(function (r) {
+        return { lat: r.p.lat, lng: r.p.lng, color: KIND[r.p.kind].color, label: KIND[r.p.kind].letter, title: r.p.name + " (" + KIND[r.p.kind].label + ")", onClick: function () { Nearby.pick(r.p); } };
+      });
+      if (me) markers.push({ lat: me.lat, lng: me.lng, color: "#1F5FBF", me: true, title: "You are here" });
+      MapView.markers = markers;
+      if (me && !this.centered) { MapView.set(me.lat, me.lng, 14); this.centered = true; } else MapView.schedule();
+      var el = $("#placeList");
+      if (!rows.length) { el.innerHTML = '<p class="muted">Nothing to show yet. Press Refresh when you have internet.</p>'; return; }
+      el.innerHTML = rows.map(function (r) {
+        var p = r.p, dir = "https://www.google.com/maps/dir/?api=1&destination=" + p.lat + "," + p.lng;
+        return '<div class="item"><div><b>' + esc(p.name) + "</b><small>" + KIND[p.kind].label + (isFinite(r.m) ? " &middot; " + fmtDist(r.m) + " " + compass(r.b) : "") + "</small></div>" +
+          '<div class="btns"><button class="btn ghost sm" data-show="' + esc(p.id) + '" type="button">Show on map</button>' +
+          (p.phone ? '<a class="btn ghost sm" href="tel:' + esc(String(p.phone).replace(/[^0-9+]/g, "")) + '">Call</a>' : "") +
+          '<a class="btn sm" target="_blank" rel="noopener" href="' + dir + '">Directions</a></div></div>';
+      }).join("");
+    },
+    pick: function (p) { MapView.set(p.lat, p.lng, 16); var n = $("#mapnote"); n.style.display = "block"; n.textContent = p.name + " - " + KIND[p.kind].label; }
+  };
+  $("#placeList").addEventListener("click", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-show");
+    if (!id) return;
+    var p = S.places.items.filter(function (x) { return x.id === id; })[0];
+    if (p) { Nearby.pick(p); $("#map").scrollIntoView({ block: "center" }); }
+  });
+  $("#filters").addEventListener("click", function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute("data-f"); if (!f) return;
+    Nearby.filter = f;
+    $$("#filters .chip").forEach(function (c) { c.setAttribute("aria-pressed", c.getAttribute("data-f") === f ? "true" : "false"); });
+    Nearby.render();
+  });
+  $("#refreshPlaces").addEventListener("click", function () { Nearby.refresh(); });
+
+  /* ---------- camera recording ---------- */
+  var Cam = {
+    stream: null, rec: null, chunks: [], timer: null, secs: 0, list: [], facing: "user",
+    err: function (t) { $("#camErr").textContent = t || ""; },
+    onShow: function () { if (!this.stream) this.open(null, this.facing); },
+    leave: function () { if (!this.rec) this.stopStream(); },
+    stopStream: function () {
+      if (this.stream) { this.stream.getTracks().forEach(function (t) { t.stop(); }); this.stream = null; }
+      var v = $("#cam"); v.srcObject = null; $("#recBtn").disabled = true;
+    },
+    open: async function (deviceId, facing) {
+      if (this.rec) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { this.err("This browser cannot use the camera here. Open the page over https, in Chrome or Edge."); return; }
+      this.stopStream(); this.err("");
+      try {
+        var video = deviceId ? { deviceId: { exact: deviceId } } : { facingMode: facing || "user" };
+        this.stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: true });
+        var v = $("#cam"); v.srcObject = this.stream; v.muted = true; await v.play().catch(function () {});
+        $("#recBtn").disabled = false;
+        this.devices();
+      } catch (e) {
+        this.err(e && e.name === "NotAllowedError" ? "Camera or microphone was blocked. Allow them in the browser address bar, then try again." : "Could not start the camera. Is another app using it?");
+      }
+    },
+    devices: async function () {
+      try {
+        var all = await navigator.mediaDevices.enumerateDevices(), cams = all.filter(function (d) { return d.kind === "videoinput"; });
+        var cur = this.stream && this.stream.getVideoTracks()[0] && this.stream.getVideoTracks()[0].getSettings().deviceId;
+        $("#camSelect").innerHTML = cams.map(function (d, i) { return '<option value="' + esc(d.deviceId) + '"' + (d.deviceId === cur ? " selected" : "") + ">" + esc(d.label || "Camera " + (i + 1)) + "</option>"; }).join("");
+      } catch (e) { /* ignore */ }
+    },
+    toggle: function () { if (this.rec) this.stop(); else this.start(); },
+    start: function () {
+      if (!this.stream || typeof MediaRecorder === "undefined") { this.err("Recording is not supported in this browser."); return; }
+      var types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"], mime = "", i;
+      for (i = 0; i < types.length; i++) { if (MediaRecorder.isTypeSupported(types[i])) { mime = types[i]; break; } }
+      this.chunks = [];
+      try { this.rec = mime ? new MediaRecorder(this.stream, { mimeType: mime }) : new MediaRecorder(this.stream); } catch (e) { this.err("Could not start recording."); return; }
+      var self = this, rec = this.rec;
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) self.chunks.push(e.data); };
+      rec.onstop = function () { self.finish(rec.mimeType || mime || "video/webm"); };
+      rec.start(1000);
+      this.secs = 0; $("#recTime").textContent = "00:00"; $("#recInd").hidden = false; $("#recBtn").textContent = "Stop recording";
+      this.timer = setInterval(function () { self.secs++; $("#recTime").textContent = two(Math.floor(self.secs / 60)) + ":" + two(self.secs % 60); }, 1000);
+    },
+    stop: function () { if (this.rec && this.rec.state !== "inactive") this.rec.stop(); },
+    finish: function (mime) {
+      clearInterval(this.timer); $("#recInd").hidden = true; $("#recBtn").textContent = "Start recording";
+      var blob = new Blob(this.chunks, { type: mime }), ext = mime.indexOf("mp4") >= 0 ? "mp4" : "webm", url = URL.createObjectURL(blob);
+      var stamp = new Date(), name = "safety-recording-" + stamp.getFullYear() + two(stamp.getMonth() + 1) + two(stamp.getDate()) + "-" + two(stamp.getHours()) + two(stamp.getMinutes()) + two(stamp.getSeconds()) + "." + ext;
+      this.list.unshift({ name: name, url: url, size: blob.size, time: stamp.getTime(), secs: this.secs });
+      this.rec = null; this.chunks = [];
+      this.renderList();
+      var a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      toast("Saved " + name);
+    },
+    renderList: function () {
+      var el = $("#recList");
+      if (!this.list.length) { el.innerHTML = '<p class="muted">No recordings yet.</p>'; return; }
+      el.innerHTML = this.list.map(function (r, i) {
+        var mb = r.size < 1048576 ? Math.round(r.size / 1024) + " KB" : (r.size / 1048576).toFixed(1) + " MB";
+        return '<div class="item"><div>' + esc(r.name) + "<small>" + fmt(r.time) + " &middot; " + two(Math.floor(r.secs / 60)) + ":" + two(r.secs % 60) + " &middot; " + mb + '</small></div>' +
+          '<div class="btns"><a class="btn sm" href="' + r.url + '" download="' + esc(r.name) + '">Download</a>' +
+          '<button class="btn ghost sm" data-rdel="' + i + '" type="button">Delete</button></div></div>';
+      }).join("");
+    }
+  };
+  $("#recBtn").addEventListener("click", function () { Cam.toggle(); });
+  $("#camFront").addEventListener("click", function () { Cam.facing = "user"; Cam.open(null, "user"); });
+  $("#camBack").addEventListener("click", function () { Cam.facing = "environment"; Cam.open(null, "environment"); });
+  $("#camSelect").addEventListener("change", function (e) { Cam.open(e.target.value); });
+  $("#recList").addEventListener("click", function (e) {
+    var i = e.target.getAttribute && e.target.getAttribute("data-rdel");
+    if (i !== null && i !== undefined) { URL.revokeObjectURL(Cam.list[Number(i)].url); Cam.list.splice(Number(i), 1); Cam.renderList(); }
+  });
+  window.addEventListener("beforeunload", function (e) { if (Cam.rec) { e.preventDefault(); e.returnValue = ""; } });
+
+  /* ---------- install + offline ---------- */
+  var deferred = null;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; $("#installBtn").hidden = false; });
+  $("#installBtn").addEventListener("click", function () { if (deferred) { deferred.prompt(); deferred = null; $("#installBtn").hidden = true; } });
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("sw.js").catch(function () { /* offline mode is optional */ });
+  }
+
+  /* ---------- start ---------- */
+  renderContacts(); renderEvents(); renderAlarm(); Cam.renderList();
+  if (!S.contacts.length) setStatus("Add your emergency contacts first (Contacts tab).");
+
+  // Small hooks so the page can be tested without a human.
+  window.__safety = { parseOverpass: parseOverpass, buildMessage: buildMessage, waDigits: waDigits, normalizePhone: normalizePhone, S: S };
+})();
+</script>
+</body>
+</html>
